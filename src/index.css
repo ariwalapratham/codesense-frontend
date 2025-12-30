@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Light Mode Colors */
+    --background: 0 0% 99%;                   /* #fefefe - Off-white background */
+    --foreground: 215 18% 16%;                /* #242932 - Dark text */
+
+    --card: 0 0% 100%;                        /* White cards */
+    --card-foreground: 215 18% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 18% 16%;
+
+    --primary: 199 76% 56%;                   /* #3ba1e4 - Bright blue */
+    --primary-foreground: 0 0% 99%;
+
+    --secondary: 215 18% 95%;                 /* Light gray background */
+    --secondary-foreground: 215 18% 16%;
+
+    --muted: 215 18% 95%;
+    --muted-foreground: 215 18% 40%;
+
+    --accent: 199 76% 56%;                    /* Same as primary for consistency */
+    --accent-foreground: 0 0% 99%;
+
+    --destructive: 4 89% 54%;                 /* #f22e1f - Red for errors */
+    --destructive-foreground: 0 0% 99%;
+
+    --border: 215 18% 85%;
+    --input: 215 18% 90%;
+    --ring: 199 76% 56%;
+
+    --radius: 0.5rem;
+
+    /* Code highlight colors */
+    --code-bg: 215 18% 97%;
+    --code-border: 215 18% 85%;
+    
+    /* Status colors */
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --info: 199 76% 56%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(199 76% 56%), hsl(199 76% 46%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(0 0% 98%));
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 4px hsl(215 18% 8% / 0.1);
+    --shadow-md: 0 4px 8px hsl(215 18% 8% / 0.15);
+    --shadow-lg: 0 8px 16px hsl(215 18% 8% / 0.2);
+    --shadow-glow: 0 0 20px hsl(199 76% 56% / 0.2);
+
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    /* Dark Mode Colors - #242932, #fefefe, #3ba1e4, #f22e1f */
+    --background: 215 18% 16%;                /* #242932 - Primary dark background */
+    --foreground: 0 0% 99%;                   /* #fefefe - Off-white text */
+
+    --card: 215 18% 19%;                      /* Slightly lighter than background */
+    --card-foreground: 0 0% 99%;
+
+    --popover: 215 18% 16%;
+    --popover-foreground: 0 0% 99%;
+
+    --primary: 199 76% 56%;                   /* #3ba1e4 - Bright blue */
+    --primary-foreground: 0 0% 99%;
+
+    --secondary: 215 18% 22%;                 /* Muted background variation */
+    --secondary-foreground: 0 0% 99%;
+
+    --muted: 215 18% 22%;
+    --muted-foreground: 215 10% 65%;
+
+    --accent: 199 76% 56%;                    /* Same as primary for consistency */
+    --accent-foreground: 0 0% 99%;
+
+    --destructive: 4 89% 54%;                 /* #f22e1f - Red for errors */
+    --destructive-foreground: 0 0% 99%;
+
+    --border: 215 18% 28%;
+    --input: 215 18% 22%;
+    --ring: 199 76% 56%;
+
+    /* Code highlight colors */
+    --code-bg: 215 18% 12%;
+    --code-border: 215 18% 28%;
+    
+    /* Gradients */
+    --gradient-card: linear-gradient(145deg, hsl(215 18% 19%), hsl(215 18% 16%));
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 4px hsl(215 18% 8% / 0.4);
+    --shadow-md: 0 4px 8px hsl(215 18% 8% / 0.5);
+    --shadow-lg: 0 8px 16px hsl(215 18% 8% / 0.6);
+    --shadow-glow: 0 0 20px hsl(199 76% 56% / 0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Blinking cursor animation for streaming */
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
