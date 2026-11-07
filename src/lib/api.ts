@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://0.0.0.0:8000';
+import { apiRequest, getApiBaseUrl, parseApiError } from './apiClient';
+
+export { ApiError, isApiError } from './apiClient';
 
 export interface ApiRepository {
   id: string;
@@ -27,28 +29,17 @@ export async function fetchRepositories(
   params: RepositoriesQueryParams = {}
 ): Promise<RepositoriesResponse> {
   const { skip = 0, limit = 10, search = '' } = params;
-  
+
   const queryParams = new URLSearchParams({
     skip: skip.toString(),
     limit: limit.toString(),
   });
-  
+
   if (search) {
     queryParams.append('search', search);
   }
-  
-  const response = await fetch(`${API_BASE_URL}/repository/?${queryParams.toString()}`, {
-    method: 'GET',
-    headers: {
-      'accept': 'application/json',
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch repositories: ${response.statusText}`);
-  }
-  
-  return response.json();
+
+  return apiRequest<RepositoriesResponse>(`/repository/?${queryParams.toString()}`);
 }
 
 export interface ParsingStats {
@@ -77,18 +68,7 @@ export interface RepositoryDetails {
 }
 
 export async function fetchRepositoryDetails(repoId: string): Promise<RepositoryDetails> {
-  const response = await fetch(`${API_BASE_URL}/repository/${repoId}`, {
-    method: 'GET',
-    headers: {
-      'accept': 'application/json',
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch repository details: ${response.statusText}`);
-  }
-  
-  return response.json();
+  return apiRequest<RepositoryDetails>(`/repository/${repoId}`);
 }
 
 export interface RepositoryStats {
@@ -101,18 +81,7 @@ export interface RepositoryStats {
 }
 
 export async function fetchRepositoryStats(repoId: string): Promise<RepositoryStats> {
-  const response = await fetch(`${API_BASE_URL}/repository/${repoId}/stats`, {
-    method: 'GET',
-    headers: {
-      'accept': 'application/json',
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch repository stats: ${response.statusText}`);
-  }
-  
-  return response.json();
+  return apiRequest<RepositoryStats>(`/repository/${repoId}/stats`);
 }
 
 export interface ChatSessionResponse {
@@ -139,22 +108,12 @@ export interface ChatSessionsQueryParams {
 
 export async function createChatSession(
   repoId: string,
-  title: string = "New Chat"
+  title: string = 'New Chat'
 ): Promise<ChatSessionResponse> {
-  const response = await fetch(`${API_BASE_URL}/repository/${repoId}/chat-sessions/`, {
+  return apiRequest<ChatSessionResponse>(`/repository/${repoId}/chat-sessions/`, {
     method: 'POST',
-    headers: {
-      'accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
     body: JSON.stringify({ title }),
   });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to create chat session: ${response.statusText}`);
-  }
-  
-  return response.json();
 }
 
 export async function fetchChatSessions(
@@ -162,24 +121,15 @@ export async function fetchChatSessions(
   params: ChatSessionsQueryParams = {}
 ): Promise<ChatSessionsListResponse> {
   const { skip = 0, limit = 10 } = params;
-  
+
   const queryParams = new URLSearchParams({
     skip: skip.toString(),
     limit: limit.toString(),
   });
-  
-  const response = await fetch(`${API_BASE_URL}/repository/${repoId}/chat-sessions/?${queryParams.toString()}`, {
-    method: 'GET',
-    headers: {
-      'accept': 'application/json',
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch chat sessions: ${response.statusText}`);
-  }
-  
-  return response.json();
+
+  return apiRequest<ChatSessionsListResponse>(
+    `/repository/${repoId}/chat-sessions/?${queryParams.toString()}`
+  );
 }
 
 export async function updateChatSession(
@@ -187,36 +137,22 @@ export async function updateChatSession(
   sessionId: string,
   title: string
 ): Promise<ChatSessionResponse> {
-  const response = await fetch(`${API_BASE_URL}/repository/${repoId}/chat-sessions/${sessionId}`, {
-    method: 'PATCH',
-    headers: {
-      'accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ title }),
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to update chat session: ${response.statusText}`);
-  }
-  
-  return response.json();
+  return apiRequest<ChatSessionResponse>(
+    `/repository/${repoId}/chat-sessions/${sessionId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    }
+  );
 }
 
 export async function deleteChatSession(
   repoId: string,
   sessionId: string
 ): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/repository/${repoId}/chat-sessions/${sessionId}`, {
+  await apiRequest<void>(`/repository/${repoId}/chat-sessions/${sessionId}`, {
     method: 'DELETE',
-    headers: {
-      'accept': '*/*',
-    },
   });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to delete chat session: ${response.statusText}`);
-  }
 }
 
 export interface MessageReference {
@@ -278,23 +214,15 @@ export async function sendMessage(
   message: string,
   stream: boolean = false
 ): Promise<SendMessageResponse> {
-  const response = await fetch(`${API_BASE_URL}/repository/${repoId}/chat-sessions/${sessionId}/messages`, {
-    method: 'POST',
-    headers: {
-      'accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ message, stream }),
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to send message: ${response.statusText}`);
-  }
-  
-  return response.json();
+  return apiRequest<SendMessageResponse>(
+    `/repository/${repoId}/chat-sessions/${sessionId}/messages`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ message, stream }),
+    }
+  );
 }
 
-// Streaming message types
 export interface StreamChunkData {
   content: string;
 }
@@ -334,11 +262,13 @@ export async function sendMessageStream(
   callbacks: StreamCallbacks
 ): Promise<void> {
   const response = await fetch(
-    `${API_BASE_URL}/repository/${repoId}/chat-sessions/${sessionId}/messages/stream`,
+    `${getApiBaseUrl()}/repository/${repoId}/chat-sessions/${sessionId}/messages/stream`,
     {
       method: 'POST',
       headers: {
+        Accept: 'text/event-stream',
         'Content-Type': 'application/json',
+        'X-Request-ID': crypto.randomUUID(),
       },
       body: JSON.stringify({
         message: message,
@@ -348,19 +278,17 @@ export async function sendMessageStream(
   );
 
   if (!response.ok) {
-    const errorText = await response.text();
-    callbacks.onError(`Failed to send message: ${response.statusText} - ${errorText}`);
+    const error = await parseApiError(response);
+    callbacks.onError(error.message);
     return;
   }
 
-  // Check if response is SSE stream
   const contentType = response.headers.get('content-type');
   if (!contentType || !contentType.includes('text/event-stream')) {
     callbacks.onError('Invalid response type. Expected text/event-stream');
     return;
   }
 
-  // Read the SSE stream
   const reader = response.body?.getReader();
   if (!reader) {
     callbacks.onError('Failed to get response reader');
@@ -374,7 +302,6 @@ export async function sendMessageStream(
     while (true) {
       const { done, value } = await reader.read();
       if (done) {
-        // Process any remaining buffer
         if (buffer.trim()) {
           const event = buffer.trim();
           let currentEventType: string | null = null;
@@ -410,8 +337,7 @@ export async function sendMessageStream(
       }
 
       buffer += decoder.decode(value, { stream: true });
-      
-      // Process complete SSE events (separated by \n\n)
+
       let eventEndIndex;
       while ((eventEndIndex = buffer.indexOf('\n\n')) !== -1) {
         const event = buffer.substring(0, eventEndIndex);
@@ -422,17 +348,14 @@ export async function sendMessageStream(
         let currentEventType: string | null = null;
         let eventData: string | null = null;
 
-        // Parse event lines
         const lines = event.split('\n');
         for (const line of lines) {
           const trimmedLine = line.trim();
           if (trimmedLine.startsWith('event: ')) {
             currentEventType = trimmedLine.replace('event: ', '').trim();
           } else if (trimmedLine.startsWith('data: ')) {
-            // Handle multi-line data (though SSE spec says data should be single line)
             const dataValue = trimmedLine.replace('data: ', '').trim();
             if (eventData) {
-              // If multiple data lines, append them
               eventData += '\n' + dataValue;
             } else {
               eventData = dataValue;
@@ -440,30 +363,24 @@ export async function sendMessageStream(
           }
         }
 
-        // Process the event immediately
         if (eventData) {
           try {
             const data = JSON.parse(eventData);
 
             if (currentEventType === 'chunk') {
-              // Handle chunk event - incremental content
               if (data.content !== undefined && data.content !== null) {
-                // Call immediately for each chunk
                 callbacks.onChunk(data.content);
               }
             } else if (currentEventType === 'done') {
-              // Handle done event - message complete
               callbacks.onDone({
                 message_id: data.message_id,
                 references: data.references || [],
                 metadata: data.metadata,
               });
             } else if (currentEventType === 'error') {
-              // Handle error event
               callbacks.onError(data.error || 'Unknown error occurred');
               return;
             } else if (!currentEventType) {
-              // If no event type specified, try to infer from data
               if (data.content) {
                 callbacks.onChunk(data.content);
               } else if (data.message_id) {
@@ -479,7 +396,6 @@ export async function sendMessageStream(
             }
           } catch (parseError) {
             console.error('Failed to parse SSE data:', parseError, eventData);
-            // Continue processing other events
           }
         }
       }
@@ -499,27 +415,17 @@ export async function fetchMessages(
   params: MessagesQueryParams = {}
 ): Promise<MessagesResponse> {
   const { skip = 0, limit = 50 } = params;
-  
+
   const queryParams = new URLSearchParams({
     skip: skip.toString(),
     limit: limit.toString(),
   });
-  
-  const response = await fetch(`${API_BASE_URL}/repository/${repoId}/chat-sessions/${sessionId}/messages?${queryParams.toString()}`, {
-    method: 'GET',
-    headers: {
-      'accept': 'application/json',
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch messages: ${response.statusText}`);
-  }
-  
-  return response.json();
+
+  return apiRequest<MessagesResponse>(
+    `/repository/${repoId}/chat-sessions/${sessionId}/messages?${queryParams.toString()}`
+  );
 }
 
-// Ingestion API Types and Functions
 export interface IngestionRequest {
   repo_url: string;
   branch: string;
@@ -555,111 +461,47 @@ export interface IngestionStatusResponse {
   completed_at: string | null;
 }
 
-export interface IngestionConflictResponse {
-  request_id: string;
-  encoded_id?: string;
-  message: string;
-}
-
-// Helper function to generate encoded_id from repo info
 export function generateEncodedId(owner: string, repoName: string, branch: string = 'main'): string {
   const data = {
     branch: branch,
     owner: owner,
     repo_name: repoName
   };
-  
-  // Sort keys for consistency (matches backend)
+
   const sortedKeys = Object.keys(data).sort();
   const sorted: Record<string, string> = {};
   sortedKeys.forEach(key => {
     sorted[key] = data[key as keyof typeof data];
   });
-  
+
   const jsonStr = JSON.stringify(sorted);
   const encoded = btoa(jsonStr);
-  return encoded.replace(/=+$/, ''); // Remove padding
+  return encoded.replace(/=+$/, '');
 }
 
 export async function createIngestionRequest(
   request: IngestionRequest
 ): Promise<IngestionResponse> {
-  const response = await fetch(`${API_BASE_URL}/repository/ingest`, {
+  return apiRequest<IngestionResponse>('/repository/ingest', {
     method: 'POST',
-    headers: {
-      'accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
     body: JSON.stringify(request),
   });
-  
-  if (response.status === 409) {
-    const conflictData: IngestionConflictResponse = await response.json();
-    throw new Error(`Repository already being processed: ${conflictData.message}`);
-  }
-  
-  if (response.status === 429) {
-    throw new Error('Rate limit exceeded. Please try again later.');
-  }
-  
-  if (!response.ok) {
-    throw new Error(`Failed to create ingestion request: ${response.statusText}`);
-  }
-  
-  return response.json();
 }
 
 export async function getIngestionStatus(
-  identifier: string // Can be encoded_id or request_id
+  identifier: string
 ): Promise<IngestionStatusResponse> {
-  const response = await fetch(`${API_BASE_URL}/repository/ingest/status/${identifier}`, {
-    method: 'GET',
-    headers: {
-      'accept': 'application/json',
-    },
-  });
-  
-  if (response.status === 404) {
-    throw new Error('Ingestion request not found');
-  }
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ingestion status: ${response.statusText}`);
-  }
-  
-  return response.json();
+  return apiRequest<IngestionStatusResponse>(`/repository/ingest/status/${identifier}`);
 }
 
 export async function retryIngestion(
   requestId: string
 ): Promise<IngestionResponse> {
-  const response = await fetch(`${API_BASE_URL}/repository/ingest/${requestId}/retry`, {
+  return apiRequest<IngestionResponse>(`/repository/ingest/${requestId}/retry`, {
     method: 'POST',
-    headers: {
-      'accept': 'application/json',
-    },
   });
-  
-  if (response.status === 400) {
-    throw new Error('Cannot retry: ingestion is not in failed state');
-  }
-  
-  if (response.status === 404) {
-    throw new Error('Ingestion request not found');
-  }
-  
-  if (response.status === 429) {
-    throw new Error('Retry rate limit exceeded. Please try again later.');
-  }
-  
-  if (!response.ok) {
-    throw new Error(`Failed to retry ingestion: ${response.statusText}`);
-  }
-  
-  return response.json();
 }
 
-// Delete Repository API Types and Functions
 export interface DeleteRepositoryResponse {
   success: boolean;
   message: string;
@@ -673,23 +515,7 @@ export interface DeleteRepositoryResponse {
 export async function deleteRepository(
   repoId: string
 ): Promise<DeleteRepositoryResponse> {
-  const response = await fetch(`${API_BASE_URL}/repository/${repoId}`, {
+  return apiRequest<DeleteRepositoryResponse>(`/repository/${repoId}`, {
     method: 'DELETE',
-    headers: {
-      'accept': 'application/json',
-    },
   });
-  
-  if (response.status === 404) {
-    const errorData = await response.json().catch(() => ({ detail: 'Repository not found' }));
-    throw new Error(errorData.detail || 'Repository not found');
-  }
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(errorData.detail || `Failed to delete repository: ${response.statusText}`);
-  }
-  
-  return response.json();
 }
-
