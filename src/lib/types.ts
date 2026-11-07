@@ -6,7 +6,7 @@ export interface Repository {
   owner: string;
   branch: string;
   commit_hash: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   ingestion_date: string;
   file_count?: number;
   total_size?: number;
@@ -47,17 +47,7 @@ export interface CodeSnippet {
   line_end?: number;
 }
 
-// Ingestion Types
-export interface IngestionProgress {
-  repo_id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  current_step: string;
-  total_files: number;
-  processed_files: number;
-  estimated_time?: number;
-  error_message?: string;
-}
+export type { IngestionJobStatus, IngestionProgress, IngestionStage } from './api';
 
 // API Response Types
 export interface ApiResponse<T> {

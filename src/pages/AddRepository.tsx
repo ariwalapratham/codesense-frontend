@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,15 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { GitBranch, ArrowLeft, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { createIngestionRequest, generateEncodedId } from "@/lib/api";
+import { conflictIngestRequestId, createIngestionRequest } from "@/lib/api";
 
 const AddRepository = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     repo_url: "",
-    branch: "main",
+    branch: "",
     cleanup: true,
   });
 
@@ -26,38 +25,34 @@ const AddRepository = () => {
     try {
       const response = await createIngestionRequest({
         repo_url: formData.repo_url,
-        branch: formData.branch,
+        branch: formData.branch.trim() || undefined,
         cleanup: formData.cleanup,
       });
-      
-      // Store repo info for status tracking (can regenerate encoded_id from this)
-      const repoInfo = {
-        owner: response.owner,
-        repo_name: response.repo_name,
-        branch: response.branch,
-        encoded_id: response.encoded_id,
-        request_id: response.request_id,
-        repo_id: response.repo_id,
-      };
-      
-      // Store in localStorage keyed by repo_id
-      localStorage.setItem(`ingestion_repo_${response.repo_id}`, JSON.stringify(repoInfo));
-      
-      // Also store by encoded_id for easy lookup
-      localStorage.setItem(`ingestion_encoded_${response.encoded_id}`, JSON.stringify(repoInfo));
-      
-      toast.success("Ingestion request created!", {
-        description: "Redirecting to repositories page...",
-      });
-      
-      // Redirect immediately to repositories page
-      setTimeout(() => {
-      navigate("/repositories");
-      }, 500);
+
+      if (response.status === "completed" && response.repo_id) {
+        toast.success("Repository already indexed");
+        navigate(`/repositories/${response.repo_id}`);
+        return;
+      }
+
+      if (response.request_id) {
+        toast.success("Ingestion started");
+        navigate(`/ingest/${response.request_id}`);
+        return;
+      }
+
+      toast.error("Ingestion did not return a request id");
+      setIsLoading(false);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to add repository';
+      const existingId = conflictIngestRequestId(error);
+      if (existingId) {
+        toast.info("Ingestion already in progress");
+        navigate(`/ingest/${existingId}`);
+        return;
+      }
+
       toast.error("Failed to add repository", {
-        description: errorMessage,
+        description: error instanceof Error ? error.message : "Failed to add repository",
       });
       setIsLoading(false);
     }
@@ -66,7 +61,7 @@ const AddRepository = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <div className="container py-8">
         <Button variant="ghost" asChild className="mb-6">
           <Link to="/repositories">
@@ -90,7 +85,7 @@ const AddRepository = () => {
                 </div>
               </div>
             </CardHeader>
-            
+
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
@@ -113,14 +108,14 @@ const AddRepository = () => {
                   <Label htmlFor="branch">Branch</Label>
                   <Input
                     id="branch"
-                    placeholder="main"
+                    placeholder="Leave empty for the GitHub default branch"
                     value={formData.branch}
                     onChange={(e) =>
                       setFormData({ ...formData, branch: e.target.value })
                     }
                   />
                   <p className="text-sm text-muted-foreground">
-                    Specify which branch to analyze (default: main)
+                    Optional. Omit to use the repository default branch.
                   </p>
                 </div>
 
@@ -130,9 +125,9 @@ const AddRepository = () => {
                       type="checkbox"
                       id="cleanup"
                       checked={formData.cleanup}
-                    onChange={(e) =>
+                      onChange={(e) =>
                         setFormData({ ...formData, cleanup: e.target.checked })
-                    }
+                      }
                       className="h-4 w-4 rounded border-border"
                     />
                     <Label htmlFor="cleanup" className="cursor-pointer">
@@ -150,15 +145,15 @@ const AddRepository = () => {
                     <li>• Repository will be cloned and analyzed</li>
                     <li>• Code embeddings will be generated using AI</li>
                     <li>• Files will be indexed for semantic search</li>
-                    <li>• Process typically takes 2-5 minutes</li>
-                    <li>• You'll be redirected to the repositories page to track progress</li>
+                    <li>• You can cancel while the job is queued or running</li>
+                    <li>• First request after idle can take a minute (cold start)</li>
                   </ul>
                 </div>
 
                 <div className="flex gap-3">
-                  <Button 
-                    type="submit" 
-                    className="flex-1" 
+                  <Button
+                    type="submit"
+                    className="flex-1"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -167,7 +162,7 @@ const AddRepository = () => {
                         Creating Request...
                       </>
                     ) : (
-                      'Add Repository'
+                      "Add Repository"
                     )}
                   </Button>
                   <Button

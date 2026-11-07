@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Repositories from "./pages/Repositories";
 import RepositoryDetails from "./pages/RepositoryDetails";
 import AddRepository from "./pages/AddRepository";
+import Ingest from "./pages/Ingest";
 import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
@@ -23,8 +24,9 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/repositories" element={<Repositories />} />
-            <Route path="/repositories/:repo_id" element={<RepositoryDetails />} />
             <Route path="/repositories/add" element={<AddRepository />} />
+            <Route path="/repositories/:repo_id" element={<RepositoryDetails />} />
+            <Route path="/ingest/:request_id" element={<Ingest />} />
             <Route path="/chat/:repo_id" element={<Chat />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

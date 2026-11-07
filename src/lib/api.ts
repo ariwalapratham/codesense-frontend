@@ -1,12 +1,35 @@
-import { apiRequest, getApiBaseUrl, parseApiError } from './apiClient';
+import { apiRequest, getApiBaseUrl, isApiError, parseApiError } from './apiClient';
 
 export { ApiError, isApiError } from './apiClient';
+
+export type IngestionJobStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export type IngestionStage =
+  | 'queued'
+  | 'fetching'
+  | 'parsing'
+  | 'chunking'
+  | 'embedding'
+  | 'finalizing';
+
+export interface IngestionProgress {
+  stage: IngestionStage;
+  files_total: number;
+  files_done: number;
+  chunks_total: number;
+  chunks_embedded: number;
+}
 
 export interface ApiRepository {
   id: string;
   repo_name: string;
   repository_url: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: IngestionJobStatus;
   files_processed: number;
   created_at: string;
   updated_at: string;
@@ -57,7 +80,7 @@ export interface RepositoryDetails {
   repository_url: string;
   branch: string;
   commit_hash: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: IngestionJobStatus;
   files_processed: number;
   chunks_count: number;
   chunks_with_embeddings: number;
@@ -428,34 +451,36 @@ export async function fetchMessages(
 
 export interface IngestionRequest {
   repo_url: string;
-  branch: string;
+  branch?: string;
   cleanup?: boolean;
 }
 
 export interface IngestionResponse {
-  request_id: string;
-  encoded_id: string;
-  repo_id: string;
+  request_id?: string | null;
+  encoded_id?: string | null;
+  repo_id?: string | null;
   owner: string;
   repo_name: string;
   branch: string;
-  commit_hash: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  commit_hash?: string | null;
+  status: IngestionJobStatus;
   message: string;
 }
 
 export interface IngestionStatusResponse {
   request_id: string;
-  repo_id: string;
-  owner: string;
-  repo_name: string;
-  branch: string;
-  commit_hash: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  repo_id?: string | null;
+  owner?: string | null;
+  repo_name?: string | null;
+  branch?: string | null;
+  commit_hash?: string | null;
+  type?: string;
+  status: IngestionJobStatus;
   error: string | null;
   retry_count: number;
   retry_after: string | null;
-  message: string;
+  message?: string | null;
+  progress: IngestionProgress;
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
@@ -482,9 +507,17 @@ export function generateEncodedId(owner: string, repoName: string, branch: strin
 export async function createIngestionRequest(
   request: IngestionRequest
 ): Promise<IngestionResponse> {
+  const body: Record<string, unknown> = {
+    repo_url: request.repo_url,
+    cleanup: request.cleanup ?? true,
+  };
+  const branch = request.branch?.trim();
+  if (branch) {
+    body.branch = branch;
+  }
   return apiRequest<IngestionResponse>('/repository/ingest', {
     method: 'POST',
-    body: JSON.stringify(request),
+    body: JSON.stringify(body),
   });
 }
 
@@ -500,6 +533,23 @@ export async function retryIngestion(
   return apiRequest<IngestionResponse>(`/repository/ingest/${requestId}/retry`, {
     method: 'POST',
   });
+}
+
+export async function cancelIngestion(
+  requestId: string
+): Promise<IngestionStatusResponse> {
+  return apiRequest<IngestionStatusResponse>(`/repository/ingest/${requestId}/cancel`, {
+    method: 'POST',
+  });
+}
+
+/** Job id from a 409 ingest conflict (`error.details.request_id`). */
+export function conflictIngestRequestId(error: unknown): string | null {
+  if (!isApiError(error) || error.code !== 'conflict' || !error.details) {
+    return null;
+  }
+  const requestId = error.details.request_id;
+  return typeof requestId === 'string' && requestId ? requestId : null;
 }
 
 export interface DeleteRepositoryResponse {
